@@ -17,6 +17,10 @@ onmessage = function(event) {
         data.cov3Da = new Float32Array(gaussians.count * 3)
         data.cov3Db = new Float32Array(gaussians.count * 3)
         data.colors = new Float32Array(gaussians.count * 3)
+
+        // scale and rot
+        data.scales = new Float32Array(gaussians.count * 3)
+        data.rotations = new Float32Array(gaussians.count * 4)
     }
     // Sort gaussians event
     else if (event.data.viewMatrix) {
@@ -45,13 +49,22 @@ onmessage = function(event) {
 
             // Split the covariance matrix into two vec3
             // so they can be used as vertex shader attributes
-            data.cov3Da[j*3] = gaussians.cov3Ds[i*6]
-            data.cov3Da[j*3+1] = gaussians.cov3Ds[i*6+1]
-            data.cov3Da[j*3+2] = gaussians.cov3Ds[i*6+2]
+            // data.cov3Da[j*3] = gaussians.cov3Ds[i*6]
+            // data.cov3Da[j*3+1] = gaussians.cov3Ds[i*6+1]
+            // data.cov3Da[j*3+2] = gaussians.cov3Ds[i*6+2]
 
-            data.cov3Db[j*3] = gaussians.cov3Ds[i*6+3]
-            data.cov3Db[j*3+1] = gaussians.cov3Ds[i*6+4]
-            data.cov3Db[j*3+2] = gaussians.cov3Ds[i*6+5]
+            // data.cov3Db[j*3] = gaussians.cov3Ds[i*6+3]
+            // data.cov3Db[j*3+1] = gaussians.cov3Ds[i*6+4]
+            // data.cov3Db[j*3+2] = gaussians.cov3Ds[i*6+5]
+
+            // rot and scale
+            data.scales[j*3] = gaussians.scales[i*3]
+            data.scales[j*3+1] = gaussians.scales[i*3+1]
+            data.scales[j*3+2] = gaussians.scales[i*3+2]
+            data.rotations[j*4] = gaussians.rotations[i*4]
+            data.rotations[j*4+1] = gaussians.rotations[i*4+1]
+            data.rotations[j*4+2] = gaussians.rotations[i*4+2]
+            data.rotations[j*4+3] = gaussians.rotations[i*4+3]
         }
 
         const sortTime = `${((performance.now() - start)/1000).toFixed(3)}s`

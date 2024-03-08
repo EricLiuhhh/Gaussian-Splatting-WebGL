@@ -106,15 +106,15 @@ async function loadPly(content) {
         // This also allow to avoid sending rotations and scales to the web worker or GPU.
         const cov3D = computeCov3D(scale, 1, rotation)
         cov3Ds.push(...cov3D)
-        // rotations.push(...rotation)
-        // scales.push(...scale)
+        rotations.push(...rotation)
+        scales.push(...scale)
 
         positions.push(...position)
     }
 
     console.log(`Loaded ${gaussianCount} gaussians in ${((performance.now() - start)/1000).toFixed(3)}s`)
     
-    return { positions, opacities, colors, cov3Ds }
+    return { positions, opacities, colors, cov3Ds, scales, rotations}
 }
 
 // Converts scale and rotation properties of each

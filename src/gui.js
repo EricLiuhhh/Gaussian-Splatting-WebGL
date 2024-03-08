@@ -70,6 +70,9 @@ function initGUI() {
     otherFolder.add(settings, 'debugDepth').name('Show Depth Map')
        .onChange(() => requestRender())
 
+    otherFolder.add(settings, 'showEllipsoids').name('Show Ellipsoids')
+        .onChange(() => requestRender())
+
     // Camera calibration folder
     addCameraCalibrationFolder(gui)
 

@@ -43,7 +43,7 @@ class Camera {
         // Helper vectors
         this.pos = vec3.create()
         this.front = vec3.create()
-        this.right = vec3.create()        
+        this.right = vec3.create()  
 
         // Helper matrices
         this.viewMatrix = mat4.create()

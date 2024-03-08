@@ -16,13 +16,14 @@ let positionBuffer, positionData, opacityData
 const settings = {
     scene: 'room',
     renderResolution: 0.2,
-    maxGaussians: 1e6,
+    maxGaussians: 1,
     scalingModifier: 1,
     sortingAlgorithm: 'count sort',
     bgColor: '#000000',
     speed: 0.07,
     fov: 47,
     debugDepth: false,
+    showEllipsoids: true,
     freeFly: false,
     sortTime: 'NaN',
     uploadFile: () => document.querySelector('#input').click(),
@@ -87,8 +88,14 @@ async function main() {
         updateBuffer(buffers.color, data.colors)
         updateBuffer(buffers.center, data.positions)
         updateBuffer(buffers.opacity, data.opacities)
-        updateBuffer(buffers.covA, data.cov3Da)
-        updateBuffer(buffers.covB, data.cov3Db)
+        // scale and rot
+        if (settings.showEllipsoids){
+            updateBuffer(buffers.scale, data.scales)
+            updateBuffer(buffers.rot, data.rotations)
+        } else {
+            updateBuffer(buffers.covA, data.cov3Da)
+            updateBuffer(buffers.covB, data.cov3Db)
+        }
 
         // Needed for the gizmo renderer
         positionBuffer = buffers.center
@@ -105,10 +112,11 @@ async function main() {
     initGUI()
 
     // Setup gizmo renderer
-    await gizmoRenderer.init()
+    // await gizmoRenderer.init()
 
     // Load the default scene
-    await loadScene({ scene: settings.scene })
+    // await loadScene({ scene: settings.scene })
+    await loadScene({ scene: null, file: '/Users/jackliu/Programming/Gaussian-Splatting-WebGL/point_cloud.ply' })
 }
 
 // Load a .ply scene specified as a name (URL fetch) or local file
@@ -168,6 +176,73 @@ function requestRender(...params) {
 }
 
 // Render a frame on the canvas
+// function render(width, height, res) {
+//     // Update canvas size
+//     const resolution = res ?? settings.renderResolution
+//     const canvasWidth = width ?? Math.round(canvasSize[0] * resolution)
+//     const canvasHeight = height ?? Math.round(canvasSize[1] * resolution)
+
+//     if (gl.canvas.width != canvasWidth || gl.canvas.height != canvasHeight) {
+//         gl.canvas.width = canvasWidth
+//         gl.canvas.height = canvasHeight
+//     }
+
+//     // Setup viewport
+//     gl.viewport(0, 0, gl.canvas.width, gl.canvas.height)
+//     gl.clearColor(0, 0, 0, 0)
+//     gl.clear(gl.COLOR_BUFFER_BIT)
+//     gl.useProgram(program)
+
+//     // Update camera
+//     cam.update()
+
+//     // Original implementation parameters
+//     const W = gl.canvas.width
+//     const H = gl.canvas.height
+//     const tan_fovy = Math.tan(cam.fov_y * 0.5)
+//     const tan_fovx = tan_fovy * W / H
+//     const focal_y = H / (2 * tan_fovy)
+//     const focal_x = W / (2 * tan_fovx)
+
+//     gl.uniform1f(gl.getUniformLocation(program, 'W'), W)
+//     gl.uniform1f(gl.getUniformLocation(program, 'H'), H)
+//     gl.uniform1f(gl.getUniformLocation(program, 'focal_x'), focal_x)
+//     gl.uniform1f(gl.getUniformLocation(program, 'focal_y'), focal_y)
+//     gl.uniform1f(gl.getUniformLocation(program, 'tan_fovx'), tan_fovx)
+//     gl.uniform1f(gl.getUniformLocation(program, 'tan_fovy'), tan_fovy)
+//     gl.uniform1f(gl.getUniformLocation(program, 'scale_modifier'), settings.scalingModifier)
+//     gl.uniform3fv(gl.getUniformLocation(program, 'boxmin'), sceneMin)
+//     gl.uniform3fv(gl.getUniformLocation(program, 'boxmax'), sceneMax)
+//     gl.uniformMatrix4fv(gl.getUniformLocation(program, 'projmatrix'), false, cam.vpm)
+//     gl.uniformMatrix4fv(gl.getUniformLocation(program, 'viewmatrix'), false, cam.vm)
+
+//     // Custom parameters
+//     gl.uniform1i(gl.getUniformLocation(program, 'show_depth_map'), settings.debugDepth)
+
+//     // Draw
+//     gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, settings.maxGaussians)
+
+//     // Draw gizmo
+//     // gizmoRenderer.render()
+
+//     renderFrameRequest = null
+
+//     // Progressively draw with higher resolution after the camera stops moving
+//     let nextResolution = Math.floor(resolution * 4 + 1) / 4
+//     if (nextResolution - resolution < 0.1) nextResolution += .25
+
+//     if (nextResolution <= 1 && !cam.needsWorkerUpdate && !isWorkerSorting) {
+//         const nextWidth = Math.round(canvasSize[0] * nextResolution)
+//         const nextHeight = Math.round(canvasSize[1] * nextResolution)
+
+//         if (renderTimeout != null) 
+//             clearTimeout(renderTimeout)
+
+//         renderTimeout = setTimeout(() => requestRender(nextWidth, nextHeight, nextResolution), 200)
+//     }
+// }
+
+// Render a frame on the canvas
 function render(width, height, res) {
     // Update canvas size
     const resolution = res ?? settings.renderResolution
@@ -189,33 +264,22 @@ function render(width, height, res) {
     cam.update()
 
     // Original implementation parameters
-    const W = gl.canvas.width
-    const H = gl.canvas.height
-    const tan_fovy = Math.tan(cam.fov_y * 0.5)
-    const tan_fovx = tan_fovy * W / H
-    const focal_y = H / (2 * tan_fovy)
-    const focal_x = W / (2 * tan_fovx)
+    const stage = 0
+    const alpha_limit = 0.2
 
-    gl.uniform1f(gl.getUniformLocation(program, 'W'), W)
-    gl.uniform1f(gl.getUniformLocation(program, 'H'), H)
-    gl.uniform1f(gl.getUniformLocation(program, 'focal_x'), focal_x)
-    gl.uniform1f(gl.getUniformLocation(program, 'focal_y'), focal_y)
-    gl.uniform1f(gl.getUniformLocation(program, 'tan_fovx'), tan_fovx)
-    gl.uniform1f(gl.getUniformLocation(program, 'tan_fovy'), tan_fovy)
-    gl.uniform1f(gl.getUniformLocation(program, 'scale_modifier'), settings.scalingModifier)
-    gl.uniform3fv(gl.getUniformLocation(program, 'boxmin'), sceneMin)
-    gl.uniform3fv(gl.getUniformLocation(program, 'boxmax'), sceneMax)
-    gl.uniformMatrix4fv(gl.getUniformLocation(program, 'projmatrix'), false, cam.vpm)
-    gl.uniformMatrix4fv(gl.getUniformLocation(program, 'viewmatrix'), false, cam.vm)
-
-    // Custom parameters
-    gl.uniform1i(gl.getUniformLocation(program, 'show_depth_map'), settings.debugDepth)
+    gl.uniform1i(gl.getUniformLocation(program, 'stage'), stage)
+    gl.uniform1f(gl.getUniformLocation(program, 'alpha_limit'), alpha_limit)
+    gl.uniform3fv(gl.getUniformLocation(program, 'rayOrigin'), cam.pos)
+    gl.uniformMatrix4fv(gl.getUniformLocation(program, 'MVP'), false, cam.vpm)
 
     // Draw
-    gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, settings.maxGaussians)
+    // gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, settings.maxGaussians)
+    
+    // Ellipsoids
+    gl.drawArraysInstanced(gl.TRIANGLE, 0, 36, settings.maxGaussians);
 
     // Draw gizmo
-    gizmoRenderer.render()
+    // gizmoRenderer.render()
 
     renderFrameRequest = null
 
@@ -233,5 +297,6 @@ function render(width, height, res) {
         renderTimeout = setTimeout(() => requestRender(nextWidth, nextHeight, nextResolution), 200)
     }
 }
+
 
 window.onload = main

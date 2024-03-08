@@ -8,8 +8,15 @@ async function setupWebglContext() {
     resizeObserver.observe(canvas, {box: 'content-box'})
 
     // Load shaders
-    const vertexShaderSource = await fetchFile('shaders/splat_vertex.glsl')
-    const fragmentShaderSource = await fetchFile('shaders/splat_fragment.glsl')
+    var vertexShaderSource;
+    var fragmentShaderSource;
+    if (settings.showEllipsoids){
+        vertexShaderSource = await fetchFile('shaders/gaussian_surface_vert.glsl')
+        fragmentShaderSource = await fetchFile('shaders/gaussian_surface_frag.glsl')
+    } else {
+        vertexShaderSource = await fetchFile('shaders/splat_vertex.glsl')
+        fragmentShaderSource = await fetchFile('shaders/splat_fragment.glsl')
+    }
 
     // Create shader program
     const program = createProgram(gl, vertexShaderSource, fragmentShaderSource)
@@ -25,15 +32,25 @@ async function setupWebglContext() {
     }
 
     // Create attribute buffers
-    const buffers = {
-        color: setupAttributeBuffer('a_col', 3),
-        center: setupAttributeBuffer('a_center', 3),
-        opacity: setupAttributeBuffer('a_opacity', 1),
-        // scale: setupAttributeBuffer('a_scale', 3),
-        // rot: setupAttributeBuffer('a_rot', 4),
-        covA: setupAttributeBuffer('a_covA', 3),
-        covB: setupAttributeBuffer('a_covB', 3),
+    var buffers;
+    if (settings.showEllipsoids){
+        buffers = {
+            color: setupAttributeBuffer('a_col', 3),
+            center: setupAttributeBuffer('a_center', 3),
+            opacity: setupAttributeBuffer('a_opacity', 1),
+            scale: setupAttributeBuffer('a_scale', 3),
+            rot: setupAttributeBuffer('a_rot', 4)
+        }
+    } else {
+        buffers = {
+            color: setupAttributeBuffer('a_col', 3),
+            center: setupAttributeBuffer('a_center', 3),
+            opacity: setupAttributeBuffer('a_opacity', 1),
+            covA: setupAttributeBuffer('a_covA', 3),
+            covB: setupAttributeBuffer('a_covB', 3)
+        } 
     }
+
 
     // Set correct blending
     gl.disable(gl.DEPTH_TEST)
