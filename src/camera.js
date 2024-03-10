@@ -1,9 +1,21 @@
 const { mat4, vec3, vec4 } = glMatrix
 
 class Camera {
-    constructor({target = [0, 0, 0], up = [0, 1, 0], camera = [], defaultCameraMode} = {}) {
+    constructor(canvas, 
+                camGUIController,
+                renderFunc,
+                settings,
+                {target = [0, 0, 0], up = [0, 1, 0], camera = [], defaultCameraMode = 'orbit'} = {}) {
         this.target = [...target] // Position of look-at target
         this.up = [...up]         // Up vector
+
+        // corresponding gui controller
+        this.guiController = camGUIController
+        this._renderFunc = renderFunc
+        this.settings = settings
+
+        // canvas
+        this.canvas = canvas
 
         // Camera spherical coordinates (around the target)
         this.theta  = camera[0] ?? -Math.PI/2
@@ -15,7 +27,7 @@ class Camera {
 
         // False: orbit around object (mouse + wheel)
         // True: free-fly (mouse + AWSD)
-        this.freeFly = settings.freeFly = defaultCameraMode !== 'orbit'
+        this.freeFly = defaultCameraMode !== 'orbit'
 
         // Indicate that the camera moved and the splats need to be sorted
         this.needsWorkerUpdate = true
@@ -57,26 +69,26 @@ class Camera {
         this.vpm = mat4.create()
 
         // Rotate camera around target (mouse)
-        gl.canvas.addEventListener('mousemove', e => {
+        canvas.addEventListener('mousemove', e => {
             if (!e.buttons || this.disableMovement) return
 
             this.theta -= e.movementX * 0.01 * .5
             this.phi = Math.max(1e-6, Math.min(Math.PI - 1e-6, this.phi + e.movementY * 0.01 * .5))
             this.isDragging = true
 
-            requestRender()
+            this._renderFunc()
         })
 
         // Rotate camera around target (touch)
         const lastTouch = {}
-        gl.canvas.addEventListener('touchstart', e => {
+        canvas.addEventListener('touchstart', e => {
             e.preventDefault()
             if (e.touches.length == 0 || this.disableMovement) return
 
             lastTouch.clientX = e.touches[0].clientX
             lastTouch.clientY = e.touches[0].clientY
         })
-        gl.canvas.addEventListener('touchmove', e => {
+        canvas.addEventListener('touchmove', e => {
             e.preventDefault()
             if (e.touches.length == 0 || this.disableMovement) return
 
@@ -89,16 +101,16 @@ class Camera {
             this.theta -= movementX * 0.01 * .5 * .3
             this.phi = Math.max(1e-6, Math.min(Math.PI - 1e-6, this.phi + movementY * 0.01 * .5))
 
-            requestRender()
+            this._renderFunc()
         })
 
         // Zoom in and out
-        gl.canvas.addEventListener('wheel', e => {
+        canvas.addEventListener('wheel', e => {
             if (this.freeFly || this.disableMovement) return
 
             this.radius = Math.max(1, this.radius + e.deltaY * 0.01)
 
-            requestRender()
+            this._renderFunc()
         })
 
         // Free-fly movement
@@ -115,7 +127,7 @@ class Camera {
         })
 
         // Gizmo event
-        gl.canvas.addEventListener('mouseup', e => {
+        canvas.addEventListener('mouseup', e => {
             if (this.isDragging) {
                 this.isDragging = false
                 return
@@ -130,16 +142,16 @@ class Camera {
     }
 
     // Reset parameters on new scene load
-    setParameters({target = [0, 0, 0], up = [0, 1, 0], camera = [], defaultCameraMode} = {}) {
+    setParameters({target = [0, 0, 0], up = [0, 1, 0], camera = [], defaultCameraMode = 'orbit'} = {}) {
         this.target = [...target]
         this.up = [...up]
         this.theta  = camera[0] ?? -Math.PI/2
         this.phi    = camera[1] ?? Math.PI/2
         this.radius = camera[2] ?? 3
-        this.freeFly = settings.freeFly = defaultCameraMode !== 'orbit'
+        this.freeFly = defaultCameraMode !== 'orbit'
         this.needsWorkerUpdate = true
         this.sceneRotationMatrix = rotateAlign(this.up, [0, 1, 0])
-        camController.resetCalibration()
+        this.guiController.resetCalibration()
     }
 
     updateKeys() {
@@ -148,14 +160,14 @@ class Camera {
         const front = this.getFront()
         const right = vec3.cross(this.right, front, this.up)
 
-        if (this.keyStates.KeyW) vec3.add(this.target, this.target, vec3.scale(front, front, settings.speed))
-        if (this.keyStates.KeyS) vec3.subtract(this.target, this.target, vec3.scale(front, front, settings.speed))
-        if (this.keyStates.KeyA) vec3.add(this.target, this.target, vec3.scale(right, right, settings.speed))
-        if (this.keyStates.KeyD) vec3.subtract(this.target, this.target, vec3.scale(right, right, settings.speed))
-        if (this.keyStates.ShiftLeft) vec3.add(this.target, this.target, vec3.scale(vec3.create(), this.up, settings.speed))
-        if (this.keyStates.Space) vec3.subtract(this.target, this.target, vec3.scale(vec3.create(), this.up, settings.speed))
+        if (this.keyStates.KeyW) vec3.add(this.target, this.target, vec3.scale(front, front, this.settings.speed))
+        if (this.keyStates.KeyS) vec3.subtract(this.target, this.target, vec3.scale(front, front, this.settings.speed))
+        if (this.keyStates.KeyA) vec3.add(this.target, this.target, vec3.scale(right, right, this.settings.speed))
+        if (this.keyStates.KeyD) vec3.subtract(this.target, this.target, vec3.scale(right, right, this.settings.speed))
+        if (this.keyStates.ShiftLeft) vec3.add(this.target, this.target, vec3.scale(vec3.create(), this.up, this.settings.speed))
+        if (this.keyStates.Space) vec3.subtract(this.target, this.target, vec3.scale(vec3.create(), this.up, this.settings.speed))
 
-        requestRender()
+        this._renderFunc()
     }
 
     getPos(radius = this.radius) {
@@ -182,7 +194,7 @@ class Camera {
         mat4.lookAt(this.viewMatrix, this.pos, this.target, this.up)
 
         // Create a perspective projection matrix
-        const aspect = gl.canvas.width / gl.canvas.height
+        const aspect = this.canvas.width / this.canvas.height
         mat4.perspective(this.projMatrix, this.fov_y, aspect, 0.1, 100)
 
 		// Convert view and projection to target coordinate system
@@ -198,10 +210,6 @@ class Camera {
         invertRow(this.vm, 0)
         invertRow(this.vpm, 0)
 
-        this.updateWorker()
-    }
-
-    updateWorker() {
         // Calculate the dot product between last and current view-projection matrices
         // If they differ too much, the splats need to be sorted
         const dot = this.lastViewProjMatrix[2]  * this.vpm[2] 
@@ -212,16 +220,6 @@ class Camera {
             mat4.copy(this.lastViewProjMatrix, this.vpm)
         }
 
-        // Sort the splats as soon as the worker is available
-        if (this.needsWorkerUpdate && !isWorkerSorting) {
-            this.needsWorkerUpdate = false
-            isWorkerSorting = true
-            worker.postMessage({
-                viewMatrix:  this.vpm, 
-                maxGaussians: settings.maxGaussians,
-                sortingAlgorithm: settings.sortingAlgorithm
-            })
-        }
     }
 
     raycast(x, y) {
@@ -259,7 +257,7 @@ class Camera {
 
         // Update gizmo renderer
         gizmoRenderer.setPlaneVertices(...this.calibrationPoints)
-        requestRender()
+        this._renderFunc()
 
         return rd
     }
@@ -275,7 +273,7 @@ class Camera {
         this.calibrationPoints = []
         cam.up = gizmoRenderer.planeNormal
         cam.sceneRotationMatrix = rotateAlign(gizmoRenderer.planeNormal, [0, 1, 0])
-        requestRender()
+        this._renderFunc()
     }
 }
 

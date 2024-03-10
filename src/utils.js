@@ -2,66 +2,48 @@
 async function setupWebglContext() {
     const canvas = document.querySelector('canvas')
     const gl = canvas.getContext('webgl2')
-
-    // Handle canvas resize
-    const resizeObserver = new ResizeObserver(onCanvasResize)
-    resizeObserver.observe(canvas, {box: 'content-box'})
-
-    // Load shaders
-    var vertexShaderSource;
-    var fragmentShaderSource;
-    if (settings.showEllipsoids){
-        vertexShaderSource = await fetchFile('shaders/gaussian_surface_vert.glsl')
-        fragmentShaderSource = await fetchFile('shaders/gaussian_surface_frag.glsl')
-    } else {
-        vertexShaderSource = await fetchFile('shaders/splat_vertex.glsl')
-        fragmentShaderSource = await fetchFile('shaders/splat_fragment.glsl')
-    }
-
-    // Create shader program
-    const program = createProgram(gl, vertexShaderSource, fragmentShaderSource)
-
-    const setupAttributeBuffer = (name, components) => {
-        const location = gl.getAttribLocation(program, name)
-        const buffer = gl.createBuffer()
-        gl.bindBuffer(gl.ARRAY_BUFFER, buffer)
-        gl.enableVertexAttribArray(location)
-        gl.vertexAttribPointer(location, components, gl.FLOAT, false, 0, 0)
-        gl.vertexAttribDivisor(location, 1)
-        return buffer
-    }
-
-    // Create attribute buffers
-    var buffers;
-    if (settings.showEllipsoids){
-        buffers = {
-            color: setupAttributeBuffer('a_col', 3),
-            center: setupAttributeBuffer('a_center', 3),
-            opacity: setupAttributeBuffer('a_opacity', 1),
-            scale: setupAttributeBuffer('a_scale', 3),
-            rot: setupAttributeBuffer('a_rot', 4)
-        }
-    } else {
-        buffers = {
-            color: setupAttributeBuffer('a_col', 3),
-            center: setupAttributeBuffer('a_center', 3),
-            opacity: setupAttributeBuffer('a_opacity', 1),
-            covA: setupAttributeBuffer('a_covA', 3),
-            covB: setupAttributeBuffer('a_covB', 3)
-        } 
-    }
-
+    
+    ellipsoidsRenderer = new EllipsoidsRenderer(gl)
+    gaussianRenderer = new GaussianRenderer(gl)
+    pclRenderer = new PointCloudRenderer(gl)
 
     // Set correct blending
     gl.disable(gl.DEPTH_TEST)
 	gl.enable(gl.BLEND)
 	gl.blendFunc(gl.ONE_MINUS_DST_ALPHA, gl.ONE)
 
-    return { glContext: gl, glProgram: program, buffers }
+    return { glContext: gl, 
+             ellipsoidsRenderer: ellipsoidsRenderer,
+             gaussianRenderer: gaussianRenderer,
+             pclRenderer: pclRenderer }
+}
+
+function updateBuffer(gl, buffer, data){
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffer)
+    gl.bufferData(gl.ARRAY_BUFFER, data, gl.DYNAMIC_DRAW)
+}
+
+function setupAttributeBuffer(gl, program, name, components) {
+    const location = gl.getAttribLocation(program, name)
+    const buffer = gl.createBuffer()
+    program[name] = location;
+    buffer.components = components;
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffer)
+    gl.enableVertexAttribArray(location)
+    gl.vertexAttribPointer(location, components, gl.FLOAT, false, 0, 0)
+    gl.vertexAttribDivisor(location, 1)
+    return buffer
+}
+
+function bindAttributeBuffer(gl, buffer, location){
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffer)
+    gl.enableVertexAttribArray(location)
+    gl.vertexAttribPointer(location, buffer.components, gl.FLOAT, false, 0, 0)
+    //gl.vertexAttribDivisor(location, 1)
 }
 
 // https://webglfundamentals.org/webgl/lessons/webgl-resizing-the-canvas.html
-function onCanvasResize(entries) {
+function onCanvasResize(entries, cam, renderfunc) {
     for (const entry of entries) {
         let width, height
         let dpr = window.devicePixelRatio
@@ -86,7 +68,7 @@ function onCanvasResize(entries) {
         canvasSize = [width * dpr, height * dpr]
     }
     
-    if (cam != null) requestRender()
+    if (cam != null) renderfunc()
 }
 
 // Create a program from a vertex and fragment shader

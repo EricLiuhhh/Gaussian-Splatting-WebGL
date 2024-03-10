@@ -64,7 +64,7 @@ void main(void) {
 	vec3 dir = normalize(worldPos - rayOrigin);
 
 	vec3 normal;
-	vec3 intersection = worldPos;//closestEllipsoidIntersection(dir, normal);
+	vec3 intersection = closestEllipsoidIntersection(dir, normal);
 	float align = max(0.4, dot(-dir, normal));
 	
 	out_color = vec4(1, 0, 0, 1);
@@ -79,7 +79,7 @@ void main(void) {
 
 	float a = stage == 0 ? 1.0 : 0.05f;
 
-	//out_color = vec4(align * colorVert, a);
-  out_color = vec4(colorVert, a);
+	out_color = vec4(align * colorVert, a);
+  //out_color = vec4(colorVert, a);
 	out_id = boxID;
 }

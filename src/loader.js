@@ -10,7 +10,7 @@ async function loadPly(content) {
     // Get number of gaussians
     const regex = /element vertex (\d+)/
     const match = header.match(regex)
-    gaussianCount = parseInt(match[1])
+    const gaussianCount = parseInt(match[1])
 
     document.querySelector('#loading-text').textContent = `Success. Initializing ${gaussianCount} gaussians...`
 
@@ -24,8 +24,8 @@ async function loadPly(content) {
     const cov3Ds = []
 
     // Scene bouding box
-    sceneMin = new Array(3).fill(Infinity)
-    sceneMax = new Array(3).fill(-Infinity)
+    let sceneMin = new Array(3).fill(Infinity)
+    let sceneMax = new Array(3).fill(-Infinity)
 
     // Helpers
     const sigmoid = (m1) => 1 / (1 + Math.exp(-m1))
@@ -114,7 +114,7 @@ async function loadPly(content) {
 
     console.log(`Loaded ${gaussianCount} gaussians in ${((performance.now() - start)/1000).toFixed(3)}s`)
     
-    return { positions, opacities, colors, cov3Ds, scales, rotations}
+    return { gaussianCount, sceneMin, sceneMax, positions, opacities, colors, cov3Ds, scales, rotations}
 }
 
 // Converts scale and rotation properties of each

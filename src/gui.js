@@ -4,42 +4,49 @@ const SORTING_ALGORITHMS = [
     'Array.sort'
 ]
 
-let maxGaussianController = null
-let camController = {
-    texts: {
-        'default': 'When in calibration mode, you can click on 3 points in your scene to define the ground and orientate the camera accordingly.',
-        'calibrating': 'Click on 3 points in your scene to define a plane.',
-        'calibrated': 'Click on Apply to orientate the camera so that the defined plane is parallel to the ground.'
-    }
-}
+const SHOW_TYPES = [
+    'Gaussians',
+    'Ellipsoids',
+    'PointCloud'
+]
 
 // Init settings GUI panel
-function initGUI() {
+function initGUI(view) {
     const gui = new lil.GUI({title: 'Settings'})
+    const controllers = {}
+    const settings = view.settings
+    const defaultCameraParameters = view.defaultCameraParameters
 
     // Main settings
     const sceneNames = Object.entries(defaultCameraParameters).map(([name, { size }]) => `${name} (${size})`)
-    settings.scene = sceneNames[0]
-    gui.add(settings, 'scene', sceneNames).name('Scene').listen()
-       .onChange((scene) => loadScene({ scene }))
+    settings.defaultScene = sceneNames[0]
+    gui.add(settings, 'defaultScene', sceneNames).name('Default Scene').listen()
+       .onChange((sceneName) => {
+        const scene = sceneName.split('(')[0].trim()
+        if (scene !== 'null'){
+            const url = `https://huggingface.co/kishimisu/3d-gaussian-splatting-webgl/resolve/main/${scene}.ply`
+            view.loadScene(url)
+        } 
+    })
 
     gui.add(settings, 'renderResolution', 0.1, 1, 0.01).name('Preview Resolution')
 
     maxGaussianController = gui.add(settings, 'maxGaussians', 1, settings.maxGaussians, 1).name('Max Gaussians')
        .onChange(() => {
-            cam.needsWorkerUpdate = true
-            cam.updateWorker()
+            view.cam.needsWorkerUpdate = true
+            view.updateWorker()
         })
+    controllers.maxGaussians = maxGaussianController
 
     gui.add(settings, 'scalingModifier', 0.01, 1, 0.01).name('Scaling Modifier')
-        .onChange(() => requestRender())
+        .onChange(() => view.requestRender())
 
     // File upload handler
     gui.add(settings, 'uploadFile').name('Upload .ply file')
     document.querySelector('#input').addEventListener('change', async e => {
         if (e.target.files.length === 0) return
         try {
-            await loadScene({ file: e.target.files[0] })
+            await view.loadScene(e.target.files[0])
         } catch (error) {
             document.querySelector('#loading-text').textContent = `An error occured when trying to read the file.`
             throw error
@@ -56,36 +63,52 @@ function initGUI() {
     otherFolder.addColor(settings, 'bgColor').name('Background Color')
        .onChange(value => {
         document.body.style.backgroundColor = value
-        requestRender()
+        view.requestRender()
     })
 
-    otherFolder.add(settings, 'speed', 0.01, 2, 0.01).name('Camera Speed')
+    otherFolder.add(settings.camSettings, 'speed', 0.01, 2, 0.01).name('Camera Speed')
 
     otherFolder.add(settings, 'fov', 30, 110, 1).name('FOV')
        .onChange(value => {
-        cam.fov_y = value * Math.PI / 180
-        requestRender()
+        view.cam.fov_y = value * Math.PI / 180
+        view.requestRender()
     })
 
     otherFolder.add(settings, 'debugDepth').name('Show Depth Map')
-       .onChange(() => requestRender())
+       .onChange(() => view.requestRender())
 
-    otherFolder.add(settings, 'showEllipsoids').name('Show Ellipsoids')
-        .onChange(() => requestRender())
+    otherFolder.add(settings, 'showType', SHOW_TYPES).name('Data Type').listen().onChange(() => {
+        view.switchDataType()
+    })  
+
+    otherFolder.add(settings, 'alphaLimit', 0, 1, 0.1).name('Alpha Threshold')
+        .onChange(value => {
+            settings.alphaLimit = value;
+        })
 
     // Camera calibration folder
-    addCameraCalibrationFolder(gui)
+    controllers.camController = addCameraCalibrationFolder(gui, settings, view)
 
     // Camera controls folder
-    addControlsFolder(gui)
+    addControlsFolder(gui, settings, view)
     
     // Github panel
     addGithubLink(gui)
+
+    return {gui, controllers}
 }
 
-function addCameraCalibrationFolder(gui) {
+function addCameraCalibrationFolder(gui, settings, view) {
     const folder = gui.addFolder('Camera Calibration').close()
     const p = document.createElement('p')
+    let camController = {
+        texts: {
+            'default': 'When in calibration mode, you can click on 3 points in your scene to define the ground and orientate the camera accordingly.',
+            'calibrating': 'Click on 3 points in your scene to define a plane.',
+            'calibrated': 'Click on Apply to orientate the camera so that the defined plane is parallel to the ground.'
+        }
+    }
+
     p.className = 'controller'
     p.textContent = camController.texts['default']
 
@@ -103,10 +126,10 @@ function addCameraCalibrationFolder(gui) {
         .onChange(() => {
             if (cam.isCalibrating) {
                 camController.resetCalibration()
-                requestRender()
+                view.requestRender()
             }
             else {
-                cam.isCalibrating = true
+                view.cam.isCalibrating = true
                 camController.start.name('Abort Calibration')
                 camController.start.updateDisplay()
                 p.textContent = camController.texts['calibrating']
@@ -115,8 +138,8 @@ function addCameraCalibrationFolder(gui) {
 
     camController.finish = folder.add(settings, 'finishCalibration').name('Apply changes').disable()
         .onChange(() => {
-            cam.isCalibrating = false
-            cam.finishCalibration()
+            view.cam.isCalibrating = false
+            view.cam.finishCalibration()
 
             camController.finish.disable()
             camController.start.name('Calibrate Camera')
@@ -126,18 +149,20 @@ function addCameraCalibrationFolder(gui) {
         })
 
     camController.showGizmo = folder.add(settings, 'showGizmo').name('Show Plane').hide()
-        .onChange(() => requestRender())
+        .onChange(() => view.requestRender())
 
     // Camera calibration text info
     folder.children[0].domElement.parentNode.insertBefore(p, folder.children[0].domElement)
+
+    return camController
 }
 
-function addControlsFolder(gui) {
+function addControlsFolder(gui, settings, view) {
     const controlsFolder = gui.addFolder('Controls')
-    controlsFolder.add(settings, 'freeFly').name('Free Flying').listen()
+    controlsFolder.add(settings.camSettings, 'freeFly').name('Free Flying').listen()
        .onChange(value => {
-            cam.freeFly = value
-            requestRender()
+            view.cam.freeFly = value
+            view.requestRender()
         })
 
     // Free-fly text info
@@ -173,8 +198,8 @@ function addGithubLink(gui) {
     
     const githubLink = document.createElement('a')
     githubLink.style.color = 'white'
-    githubLink.href = 'https://github.com/kishimisu/Gaussian-Splatting-WebGL'
-    githubLink.textContent = 'github.com/Gaussian-Splatting-WebGL'
+    githubLink.href = 'https://github.com/EricLiuhhh/Gaussian-Splatting-WebGL.git'
+    githubLink.textContent = 'github.com/Gaussian-Splatting-WebGL(Eric Verison)'
     githubLink.target = '_blank'
     githubLink.rel = 'noopener noreferrer'
     githubElm.innerHTML = githubLogo

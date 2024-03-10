@@ -6,21 +6,20 @@ onmessage = function(event) {
     // Init web worker event
     if (event.data.gaussians) {
         gaussians = event.data.gaussians
-        gaussians.totalCount = gaussians.count
 
-        depthIndex = new Uint32Array(gaussians.count)
+        depthIndex = new Uint32Array(gaussians.gaussianCount)
 
-        console.log(`[Worker] Received ${gaussians.count} gaussians`)
+        console.log(`[Worker] Received ${gaussians.gaussianCount} gaussians`)
 
-        data.positions = new Float32Array(gaussians.count * 3)
-        data.opacities = new Float32Array(gaussians.count)
-        data.cov3Da = new Float32Array(gaussians.count * 3)
-        data.cov3Db = new Float32Array(gaussians.count * 3)
-        data.colors = new Float32Array(gaussians.count * 3)
+        data.positions = new Float32Array(gaussians.gaussianCount * 3)
+        data.opacities = new Float32Array(gaussians.gaussianCount)
+        data.cov3Da = new Float32Array(gaussians.gaussianCount * 3)
+        data.cov3Db = new Float32Array(gaussians.gaussianCount * 3)
+        data.colors = new Float32Array(gaussians.gaussianCount * 3)
 
         // scale and rot
-        data.scales = new Float32Array(gaussians.count * 3)
-        data.rotations = new Float32Array(gaussians.count * 4)
+        data.scales = new Float32Array(gaussians.gaussianCount * 3)
+        data.rotations = new Float32Array(gaussians.gaussianCount * 4)
     }
     // Sort gaussians event
     else if (event.data.viewMatrix) {
@@ -28,7 +27,7 @@ onmessage = function(event) {
 
         const start = performance.now()
 
-        gaussians.count = Math.min(gaussians.totalCount, maxGaussians)
+        gaussians.count = Math.min(gaussians.gaussianCount, maxGaussians)
 
         // Sort the gaussians!
         sortGaussiansByDepth(depthIndex, gaussians, viewMatrix, sortingAlgorithm)
@@ -49,13 +48,12 @@ onmessage = function(event) {
 
             // Split the covariance matrix into two vec3
             // so they can be used as vertex shader attributes
-            // data.cov3Da[j*3] = gaussians.cov3Ds[i*6]
-            // data.cov3Da[j*3+1] = gaussians.cov3Ds[i*6+1]
-            // data.cov3Da[j*3+2] = gaussians.cov3Ds[i*6+2]
-
-            // data.cov3Db[j*3] = gaussians.cov3Ds[i*6+3]
-            // data.cov3Db[j*3+1] = gaussians.cov3Ds[i*6+4]
-            // data.cov3Db[j*3+2] = gaussians.cov3Ds[i*6+5]
+            data.cov3Da[j*3] = gaussians.cov3Ds[i*6]
+            data.cov3Da[j*3+1] = gaussians.cov3Ds[i*6+1]
+            data.cov3Da[j*3+2] = gaussians.cov3Ds[i*6+2]
+            data.cov3Db[j*3] = gaussians.cov3Ds[i*6+3]
+            data.cov3Db[j*3+1] = gaussians.cov3Ds[i*6+4]
+            data.cov3Db[j*3+2] = gaussians.cov3Ds[i*6+5]
 
             // rot and scale
             data.scales[j*3] = gaussians.scales[i*3]
