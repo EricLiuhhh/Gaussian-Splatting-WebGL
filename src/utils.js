@@ -3,10 +3,10 @@ async function setupWebglContext() {
     const canvas = document.querySelector('canvas')
     const gl = canvas.getContext('webgl2')
     
+    pclRenderer = new PointCloudRenderer(gl)
     ellipsoidsRenderer = new EllipsoidsRenderer(gl)
     gaussianRenderer = new GaussianRenderer(gl)
-    pclRenderer = new PointCloudRenderer(gl)
-
+    
     // Set correct blending
     gl.disable(gl.DEPTH_TEST)
 	gl.enable(gl.BLEND)
@@ -23,7 +23,7 @@ function updateBuffer(gl, buffer, data){
     gl.bufferData(gl.ARRAY_BUFFER, data, gl.DYNAMIC_DRAW)
 }
 
-function setupAttributeBuffer(gl, program, name, components) {
+function setupAttributeBuffer(gl, program, name, components, useInstance=true) {
     const location = gl.getAttribLocation(program, name)
     const buffer = gl.createBuffer()
     program[name] = location;
@@ -31,15 +31,23 @@ function setupAttributeBuffer(gl, program, name, components) {
     gl.bindBuffer(gl.ARRAY_BUFFER, buffer)
     gl.enableVertexAttribArray(location)
     gl.vertexAttribPointer(location, components, gl.FLOAT, false, 0, 0)
-    gl.vertexAttribDivisor(location, 1)
+    if (useInstance){
+        gl.vertexAttribDivisor(location, 1)
+    } else {
+        gl.vertexAttribDivisor(location, 0)
+    }
     return buffer
 }
 
-function bindAttributeBuffer(gl, buffer, location){
+function bindAttributeBuffer(gl, buffer, location, useInstance=true){
     gl.bindBuffer(gl.ARRAY_BUFFER, buffer)
     gl.enableVertexAttribArray(location)
     gl.vertexAttribPointer(location, buffer.components, gl.FLOAT, false, 0, 0)
-    //gl.vertexAttribDivisor(location, 1)
+    if (useInstance){
+        gl.vertexAttribDivisor(location, 1)
+    } else {
+        gl.vertexAttribDivisor(location, 0)
+    }
 }
 
 // https://webglfundamentals.org/webgl/lessons/webgl-resizing-the-canvas.html

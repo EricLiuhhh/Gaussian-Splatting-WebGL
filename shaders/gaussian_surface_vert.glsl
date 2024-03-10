@@ -1,8 +1,8 @@
 #version 300 es
 precision mediump float;
 
-in vec3 a_col;
 in vec3 a_center;
+in vec3 a_col;
 in float a_opacity;
 in vec3 a_scale;
 in vec4 a_rot;

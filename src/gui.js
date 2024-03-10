@@ -41,6 +41,9 @@ function initGUI(view) {
     gui.add(settings, 'scalingModifier', 0.01, 1, 0.01).name('Scaling Modifier')
         .onChange(() => view.requestRender())
 
+    gui.add(settings, 'pointSize', 1, 20, 0.1).name('Point Size')
+        .onChange(() => view.requestRender())
+
     // File upload handler
     gui.add(settings, 'uploadFile').name('Upload .ply file')
     document.querySelector('#input').addEventListener('change', async e => {

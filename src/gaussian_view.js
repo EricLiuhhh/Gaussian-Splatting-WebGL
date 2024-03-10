@@ -162,7 +162,7 @@ class GaussianView {
         } else if (showType === 'Ellipsoids'){
             this.renderers.ellipsoidsRenderer.render(0, 0.2, cam, this.settings.maxGaussians)
         } else if (showType === 'PointCloud') {
-            this.renderers.pclRenderer.render(cam, 10.0, 1.0, null, this.settings.maxGaussians)
+            this.renderers.pclRenderer.render(cam, this.settings.pointSize, 1.0, null, this.settings.maxGaussians)
         } else {
             throw Error('showType Error')
         }
@@ -214,8 +214,9 @@ class GaussianView {
     settings = {
         defaultScene:'null',
         renderResolution: 0.2,
-        maxGaussians: 1e3,
+        maxGaussians: 10,
         scalingModifier: 1,
+        pointSize: 1.0,
         sortingAlgorithm: 'count sort',
         bgColor: '#000000',
         fov: 47,
