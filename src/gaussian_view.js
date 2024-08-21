@@ -160,7 +160,7 @@ class GaussianView {
         if (showType === 'Gaussians'){
             this.renderers.gaussianRenderer.render(cam, this.settings.maxGaussians, this.settings.scalingModifier, this.settings.debugDepth, this.sceneMin, this.sceneMax)
         } else if (showType === 'Ellipsoids'){
-            this.renderers.ellipsoidsRenderer.render(0, 0.2, cam, this.settings.maxGaussians)
+            this.renderers.ellipsoidsRenderer.render(0, this.settings.alphaLimit, cam, this.settings.maxGaussians)
         } else if (showType === 'PointCloud') {
             this.renderers.pclRenderer.render(cam, this.settings.pointSize, 1.0, null, this.settings.maxGaussians)
         } else {

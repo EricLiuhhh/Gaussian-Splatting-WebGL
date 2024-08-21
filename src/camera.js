@@ -5,7 +5,7 @@ class Camera {
                 camGUIController,
                 renderFunc,
                 settings,
-                {target = [0, 0, 0], up = [0, 1, 0], camera = [], defaultCameraMode = 'orbit'} = {}) {
+                {target = [0, 0, 0], up = [0, 0, 1], camera = [], defaultCameraMode = 'orbit'} = {}) {
         this.target = [...target] // Position of look-at target
         this.up = [...up]         // Up vector
 

@@ -10,6 +10,15 @@ const SHOW_TYPES = [
     'PointCloud'
 ]
 
+const CAM_VIEW_UP = [
+    'x+',
+    'x-',
+    'y+',
+    'y-',
+    'z+',
+    'z-',
+]
+
 // Init settings GUI panel
 function initGUI(view) {
     const gui = new lil.GUI({title: 'Settings'})
@@ -87,6 +96,25 @@ function initGUI(view) {
     otherFolder.add(settings, 'alphaLimit', 0, 1, 0.1).name('Alpha Threshold')
         .onChange(value => {
             settings.alphaLimit = value;
+        })
+
+    otherFolder.add(settings, 'camViewUp', CAM_VIEW_UP).name('Camera View up')
+        .onChange(value => {
+            if (value === 'x+'){
+                up = [1, 0, 0]
+            } else if (value === 'x-'){
+                up = [-1, 0, 0]
+            } else if (value === 'y+'){
+                up = [0, 1, 0]
+            } else if (value === 'y-'){
+                up = [0, -1, 0]
+            } else if (value === 'z+'){
+                up = [0, 0, 1]
+            } else {
+                up = [0, 0, -1]
+            }
+            view.cam.setParameters({target = [0, 0, 0], up = up, camera = [], defaultCameraMode = 'orbit'} = {})
+            view.cam.update()
         })
 
     // Camera calibration folder
